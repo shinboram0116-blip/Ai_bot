@@ -6,7 +6,7 @@ import uuid
 st.set_page_config(page_title="나만의 Gemini AI 보조", page_icon="🤖", layout="wide")
 st.title("🤖 나만의 Gemini AI 보조")
 
-# Secrets 또는 사이드바 입력에서 API 키 가져오기
+# Streamlit Secrets 또는 사이드바 입력에서 API 키 가져오기
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
 # 1. 세션 상태 초기화
@@ -18,7 +18,7 @@ if "current_chat_id" not in st.session_state or st.session_state.current_chat_id
     st.session_state.chats[new_id] = {"title": "새 대화", "messages": []}
     st.session_state.current_chat_id = new_id
 
-# 2. 사이드바 구성
+# 2. 사이드바 구성 (새 대화, 대화 목록, 삭제, 설정)
 with st.sidebar:
     st.header("⚙️ 설정 및 대화")
     
@@ -78,8 +78,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
     if not api_key:
         st.error("Google Gemini API Key가 설정되지 않았습니다!")
     else:
-        if len(messages) == 0:
-            current_chat["title"] = prompt[:15] + ("..." if len(prompt) > 15 else "")
+        is_first_message = (len(messages) == 0)
 
         messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -96,7 +95,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             except Exception as e:
                 st.error(f"PDF 파일 읽기 오류: {e}")
 
-        # 5. 히스토리 구성
+        # 5. 대화 히스토리 구성
         contents = []
         if pdf_text:
             contents.append({"role": "user", "parts": [{"text": f"참고 PDF 문서:\n{pdf_text}"}]})
@@ -105,7 +104,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             role = "user" if msg["role"] == "user" else "model"
             contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 6. API 호출 (스트리밍 초고속 모드)
+        # 6. Gemini API 스트리밍 호출
         with st.chat_message("assistant"):
             try:
                 client = genai.Client(api_key=api_key)
@@ -122,5 +121,16 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                 full_response = st.write_stream(stream_parser())
                 messages.append({"role": "assistant", "content": full_response})
                 
+                # 7. 첫 대화 시 AI가 제목을 3~5단어로 자동 요약 생성
+                if is_first_message:
+                    summary_prompt = f"다음 질문을 바탕으로 대화목록에 표시할 짧은 제목(5단어 이내, 이모지 포함)을 하나만 만들어줘. 부연설명 없이 제목만 출력해.\n질문: {prompt}"
+                    title_response = client.models.generate_content(
+                        model="gemini-3.5-flash-lite",
+                        contents=summary_prompt
+                    )
+                    if title_response and title_response.text:
+                        current_chat["title"] = title_response.text.strip()
+                        st.rerun()
+
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {e}")
