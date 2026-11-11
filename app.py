@@ -7,13 +7,15 @@ import uuid
 # 타이틀 및 테마 설정
 st.set_page_config(page_title="AI_Bot01", page_icon="💩", layout="wide")
 
-# 📱 아이폰 PWA 홈 화면 앱 아이콘 + 웹 파비콘 종합 연동 (캐시 방지 ?v=2 적용)
+# 📱 아이폰 PWA 홈 화면 앱 아이콘 + 웹 파비콘 종합 연동 (v=99 강제 캐시 갱신)
 st.markdown(
-    '''
-    <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=2">
-    <link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=2">
-    <meta property="og:image" content="https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=2">
-    ''',
+    """
+    <head>
+        <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=99">
+        <link rel="apple-touch-icon-precomposed" href="https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=99">
+        <link rel="shortcut icon" href="https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=99">
+    </head>
+    """,
     unsafe_allow_html=True
 )
 
@@ -118,7 +120,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             role = "user" if msg["role"] == "user" else "model"
             contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 5. Gemini 3.5 Flash + 실시간 구글 검색 연동
+        # 5. Gemini 3.5 Flash + 실시간 구글 검색 상시 연동
         with st.chat_message("assistant"):
             success = False
             last_error = ""
