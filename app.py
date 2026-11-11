@@ -1,74 +1,66 @@
-import os
 import streamlit as st
 from google import genai
-from google.genai import types
 import pypdf
 
-# 1. 페이지 기본 설정
-st.set_page_config(
-    page_title="내 Gemini AI 챗봇",
-    page_icon="🤖",
-    layout="wide"
-)
-
-# 2. 사이드바: API Key 입력 및 PDF 업로드
-with st.sidebar:
-    st.title("⚙️ 설정 및 파일")
-    api_key = st.text_input("Google Gemini API Key", type="password")
-    uploaded_file = st.file_uploader("PDF 문서를 업로드하세요 (RAG)", type=["pdf"])
-    st.markdown("---")
-    st.caption("2018 LG Gram Optimized App")
+# 페이지 기본 설정
+st.set_page_config(page_title="나만의 Gemini AI 보조", page_icon="🤖", layout="wide")
 
 st.title("🤖 나만의 Gemini AI 보조")
 
-# PDF 텍스트 추출 함수
-def extract_text_from_pdf(pdf_file):
-    reader = pypdf.PdfReader(pdf_file)
-    text = ""
-    for page in reader.pages:
-        extracted = page.extract_text()
-        if extracted:
-            text += extracted + "\n"
-    return text
+# 사이드바 설정
+with st.sidebar:
+    st.header("⚙️ 설정 및 파일")
+    api_key = st.text_input("Google Gemini API Key", type="password")
+    
+    st.markdown("---")
+    uploaded_file = st.file_uploader("PDF 문서를 업로드하세요 (RAG)", type=["pdf"])
 
-# 세션 상태 초기화 (대화 기록 저장)
+# 세션 상태 초기화
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 기존 대화 기록 출력
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.write(msg["content"])
+# 기존 대화 내용 출력
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# 사용자 입력 처리
+# 질문 입력받기
 if prompt := st.chat_input("질문을 입력하세요..."):
     if not api_key:
-        st.error("사이드바에 Google Gemini API Key를 먼저 입력해 주세요!")
+        st.error("왼쪽 사이드바에 Google Gemini API Key를 입력해 주세요!")
     else:
-        # 사용자 메시지 표시 및 기록
+        # 사용자 메시지 추가
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
-            st.write(prompt)
+            st.markdown(prompt)
 
-        # Gemini API 클라이언트 생성
-        client = genai.Client(api_key=api_key)
-
-        # PDF 문서가 올라와 있는 경우 프롬프트에 문서 내용 포함
-        final_prompt = prompt
+        # PDF 텍스트 추출
+        pdf_text = ""
         if uploaded_file is not None:
-            with st.spinner("PDF 문서 분석 중..."):
-                pdf_text = extract_text_from_pdf(uploaded_file)
-                final_prompt = f"다음은 참고할 문서 내용입니다:\n\n{pdf_text}\n\n위 문서를 바탕으로 다음 질문에 답하세요: {prompt}"
+            try:
+                pdf_reader = pypdf.PdfReader(uploaded_file)
+                for page in pdf_reader.pages:
+                    extracted = page.extract_text()
+                    if extracted:
+                        pdf_text += extracted + "\n"
+            except Exception as e:
+                st.error(f"PDF 파일 읽기 오류: {e}")
 
-        # AI 답변 생성
+        # 프롬프트 구성 (PDF 내용이 있으면 포함)
+        full_prompt = prompt
+        if pdf_text:
+            full_prompt = f"다음은 참고할 PDF 문서 내용입니다:\n\n{pdf_text}\n\n위 내용을 참고하여 질문에 답해주세요:\n{prompt}"
+
+        # Gemini API 호출
         with st.chat_message("assistant"):
-            with st.spinner("생각 중..."):
-                try:
-                    response = client.models.generate_content(
-                        model="gemini-1.5-flash",
-                        contents=final_prompt
-                    )
-                    st.write(response.text)
-                    st.session_state.messages.append({"role": "assistant", "content": response.text})
-                except Exception as e:
-                    st.error(f"오류가 발생했습니다: {e}")
+            try:
+                client = genai.Client(api_key=api_key)
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=full_prompt,
+                )
+                answer = response.text
+                st.markdown(answer)
+                st.session_state.messages.append({"role": "assistant", "content": answer})
+            except Exception as e:
+                st.error(f"오류가 발생했습니다: {e}")
