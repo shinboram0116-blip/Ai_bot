@@ -56,7 +56,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             try:
                 client = genai.Client(api_key=api_key)
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model="gemini-3.8-flash",
                     contents=full_prompt,
                 )
                 answer = response.text
