@@ -1,6 +1,7 @@
 import streamlit as st
 from google import genai
 import pypdf
+import uuid
 
 st.set_page_config(page_title="나만의 Gemini AI 보조", page_icon="🤖", layout="wide")
 st.title("🤖 나만의 Gemini AI 보조")
@@ -8,32 +9,78 @@ st.title("🤖 나만의 Gemini AI 보조")
 # Streamlit Secrets 또는 사이드바 입력에서 API 키 가져오기
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
+# 1. 세션 상태 초기화 (채팅 저장소 및 현재 채팅 ID 관리)
+if "chats" not in st.session_state:
+    st.session_state.chats = {}  # {chat_id: {"title": ..., "messages": [...]}}
+
+if "current_chat_id" not in st.session_state or st.session_state.current_chat_id not in st.session_state.chats:
+    new_id = str(uuid.uuid4())
+    st.session_state.chats[new_id] = {"title": "새 대화", "messages": []}
+    st.session_state.current_chat_id = new_id
+
+# 2. 사이드바 구성 (새 채팅, 대화목록, 설정)
 with st.sidebar:
-    st.header("⚙️ 설정 및 파일")
-    # Secrets에 키가 없는 경우에만 수동 입력창 표시
+    st.header("⚙️ 설정 및 대화")
+    
+    # 새 채팅 생성 버튼
+    if st.button("➕ 새 대화 시작하기", use_container_width=True):
+        new_id = str(uuid.uuid4())
+        st.session_state.chats[new_id] = {"title": "새 대화", "messages": []}
+        st.session_state.current_chat_id = new_id
+        st.rerun()
+
+    st.markdown("---")
+    st.subheader("💬 대화 목록")
+    
+    # 대화목록 선택 라디오 버튼
+    chat_ids = list(st.session_state.chats.keys())
+    chat_titles = [st.session_state.chats[cid]["title"] for cid in chat_ids]
+    
+    current_index = chat_ids.index(st.session_state.current_chat_id)
+    selected_index = st.radio(
+        "대화 선택",
+        range(len(chat_ids)),
+        format_func=lambda i: chat_titles[i],
+        index=current_index,
+        label_visibility="collapsed"
+    )
+    
+    if chat_ids[selected_index] != st.session_state.current_chat_id:
+        st.session_state.current_chat_id = chat_ids[selected_index]
+        st.rerun()
+
+    st.markdown("---")
     if not api_key:
         api_key = st.text_input("Google Gemini API Key", type="password")
     else:
-        st.success("🔒 API 키가 자동으로 연결되었습니다!")
+        st.success("🔒 API 키 자동 연결됨")
     
-    st.markdown("---")
-    uploaded_file = st.file_uploader("PDF 문서를 업로드하세요 (RAG)", type=["pdf"])
+    uploaded_file = st.file_uploader("PDF 문서 업로드 (RAG)", type=["pdf"])
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# 현재 선택된 채팅의 메시지 리스트 참조
+current_chat = st.session_state.chats[st.session_state.current_chat_id]
+messages = current_chat["messages"]
 
-for message in st.session_state.messages:
+# 3. 화면에 현재 대화 내역 출력
+for message in messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+# 4. 질문 처리
 if prompt := st.chat_input("질문을 입력하세요..."):
     if not api_key:
         st.error("Google Gemini API Key가 설정되지 않았습니다!")
     else:
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        # 첫 질문 시 대화 제목을 질문 내용으로 자동 변경
+        if len(messages) == 0:
+            current_chat["title"] = prompt[:15] + ("..." if len(prompt) > 15 else "")
+
+        # 유저 메시지 저장 및 화면 출력
+        messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
+        # PDF 텍스트 추출
         pdf_text = ""
         if uploaded_file is not None:
             try:
@@ -45,22 +92,31 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             except Exception as e:
                 st.error(f"PDF 파일 읽기 오류: {e}")
 
-        full_prompt = prompt
+        # 5. 대화 히스토리(맥락)를 Gemini API 형식으로 변환
+        contents = []
         if pdf_text:
-            full_prompt = f"다음은 참고할 PDF 문서 내용입니다:\n\n{pdf_text}\n\n위 내용을 참고하여 질문에 답해주세요:\n{prompt}"
+            contents.append({"role": "user", "parts": [{"text": f"참고 PDF 문서:\n{pdf_text}"}]})
 
+        for msg in messages:
+            role = "user" if msg["role"] == "user" else "model"
+            contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+
+        # 6. Gemini API 스트리밍 호출
         with st.chat_message("assistant"):
             try:
                 client = genai.Client(api_key=api_key)
-                response = client.models.generate_content(
-                    model="gemini-3.5-flash",
-                    contents=full_prompt,
+                response = client.models.generate_content_stream(
+                    model="gemini-3.5-flash-lite",
+                    contents=contents,
                 )
-                if response and response.text:
-                    answer = response.text
-                    st.markdown(answer)
-                    st.session_state.messages.append({"role": "assistant", "content": answer})
-                else:
-                    st.error("응답은 왔으나 텍스트가 비어 있습니다.")
+                
+                def stream_parser():
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
+
+                full_response = st.write_stream(stream_parser())
+                messages.append({"role": "assistant", "content": full_response})
+                
             except Exception as e:
                 st.error(f"오류가 발생했습니다: {e}")
