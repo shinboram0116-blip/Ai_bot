@@ -3,8 +3,9 @@ from google import genai
 import pypdf
 import uuid
 
-st.set_page_config(page_title="나만의 Gemini AI 보조", page_icon="🤖", layout="wide")
-st.title("🤖 나만의 Gemini AI 보조")
+# 타이틀 및 이모티콘 💩 변경
+st.set_page_config(page_title="AI_Bot01", page_icon="💩", layout="wide")
+st.title("💩 AI_Bot01")
 
 # Streamlit Secrets 또는 사이드바 입력에서 API 키 가져오기
 api_key = st.secrets.get("GEMINI_API_KEY", "")
@@ -111,7 +112,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                 response = client.models.generate_content_stream(
                     model="gemini-3.5-flash-lite",
                     contents=contents,
-                    config={"tools": [{"google_search": {}}]}  # 실시간 웹 검색 연동
+                    config={"tools": [{"google_search": {}}]}
                 )
                 
                 def stream_parser():
