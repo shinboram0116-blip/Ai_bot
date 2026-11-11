@@ -18,7 +18,7 @@ if "current_chat_id" not in st.session_state or st.session_state.current_chat_id
     st.session_state.chats[new_id] = {"title": "새 대화", "messages": []}
     st.session_state.current_chat_id = new_id
 
-# 2. 사이드바 구성 (새 채팅, 대화목록, 설정)
+# 2. 사이드바 구성 (새 채팅, 대화목록, 삭제, 설정)
 with st.sidebar:
     st.header("⚙️ 설정 및 대화")
     
@@ -49,6 +49,18 @@ with st.sidebar:
         st.session_state.current_chat_id = chat_ids[selected_index]
         st.rerun()
 
+    # 현재 대화 삭제 버튼
+    if st.button("🗑️ 현재 대화 삭제하기", use_container_width=True, type="secondary"):
+        del st.session_state.chats[st.session_state.current_chat_id]
+        # 모든 대화가 삭제된 경우 새 대화 1개 자동 생성
+        if not st.session_state.chats:
+            new_id = str(uuid.uuid4())
+            st.session_state.chats[new_id] = {"title": "새 대화", "messages": []}
+            st.session_state.current_chat_id = new_id
+        else:
+            st.session_state.current_chat_id = list(st.session_state.chats.keys())[0]
+        st.rerun()
+
     st.markdown("---")
     if not api_key:
         api_key = st.text_input("Google Gemini API Key", type="password")
@@ -71,7 +83,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
     if not api_key:
         st.error("Google Gemini API Key가 설정되지 않았습니다!")
     else:
-        # 첫 질문 시 대화 제목을 질문 내용으로 자동 변경
+        # 첫 질문 시 대화 제목 자동 생성
         if len(messages) == 0:
             current_chat["title"] = prompt[:15] + ("..." if len(prompt) > 15 else "")
 
@@ -92,7 +104,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             except Exception as e:
                 st.error(f"PDF 파일 읽기 오류: {e}")
 
-        # 5. 대화 히스토리(맥락)를 Gemini API 형식으로 변환
+        # 5. 대화 히스토리(맥락) 구성
         contents = []
         if pdf_text:
             contents.append({"role": "user", "parts": [{"text": f"참고 PDF 문서:\n{pdf_text}"}]})
@@ -101,13 +113,14 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             role = "user" if msg["role"] == "user" else "model"
             contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 6. Gemini API 스트리밍 호출
+        # 6. Gemini API 호출 (구글 실시간 검색 연동 + 초고속 모델)
         with st.chat_message("assistant"):
             try:
                 client = genai.Client(api_key=api_key)
                 response = client.models.generate_content_stream(
                     model="gemini-3.5-flash-lite",
                     contents=contents,
+                    config={"tools": [{"google_search": {}}]}
                 )
                 
                 def stream_parser():
