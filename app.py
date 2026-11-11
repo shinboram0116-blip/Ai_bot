@@ -7,14 +7,26 @@ import uuid
 # 타이틀 및 테마 설정
 st.set_page_config(page_title="AI_Bot01", page_icon="💩", layout="wide")
 
-# 📱 아이폰 PWA 홈 화면 앱 아이콘 + 웹 파비콘 종합 연동 (v=99 강제 캐시 갱신)
+# 📱 아이폰 PWA 홈 화면 앱 아이콘 + 웹 파비콘 JS 강제 인젝션 (v=999)
 st.markdown(
     """
-    <head>
-        <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=99">
-        <link rel="apple-touch-icon-precomposed" href="https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=99">
-        <link rel="shortcut icon" href="https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=99">
-    </head>
+    <script>
+        // 기존 icon/apple-touch-icon 태그 삭제 및 신규 강제 주입
+        var existingIcons = document.querySelectorAll("link[rel*='icon']");
+        existingIcons.forEach(function(el) { el.remove(); });
+
+        var appleLink = document.createElement('link');
+        appleLink.rel = 'apple-touch-icon';
+        appleLink.sizes = '180x180';
+        appleLink.href = 'https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=999';
+        document.head.appendChild(appleLink);
+
+        var favLink = document.createElement('link');
+        favLink.rel = 'shortcut icon';
+        favLink.type = 'image/jpeg';
+        favLink.href = 'https://raw.githubusercontent.com/shinboram0116-blip/Ai_bot/main/images.jpg?v=999';
+        document.head.appendChild(favLink);
+    </script>
     """,
     unsafe_allow_html=True
 )
