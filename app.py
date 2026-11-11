@@ -65,7 +65,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             with st.spinner("생각 중..."):
                 try:
                     response = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-1.5-flash",
                         contents=final_prompt
                     )
                     st.write(response.text)
