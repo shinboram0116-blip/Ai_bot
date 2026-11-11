@@ -104,13 +104,14 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             role = "user" if msg["role"] == "user" else "model"
             contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 6. Gemini API 스트리밍 호출
+        # 6. Gemini API 스트리밍 호출 (실시간 구글 검색 옵션 포함)
         with st.chat_message("assistant"):
             try:
                 client = genai.Client(api_key=api_key)
                 response = client.models.generate_content_stream(
                     model="gemini-3.5-flash-lite",
                     contents=contents,
+                    config={"tools": [{"google_search": {}}]}  # 실시간 웹 검색 연동
                 )
                 
                 def stream_parser():
@@ -121,15 +122,19 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                 full_response = st.write_stream(stream_parser())
                 messages.append({"role": "assistant", "content": full_response})
                 
-                # 7. 첫 대화 시 AI가 제목을 3~5단어로 자동 요약 생성
+                # 7. 첫 대화 시 AI 자동 요약 제목 생성
                 if is_first_message:
-                    summary_prompt = f"다음 질문을 바탕으로 대화목록에 표시할 짧은 제목(5단어 이내, 이모지 포함)을 하나만 만들어줘. 부연설명 없이 제목만 출력해.\n질문: {prompt}"
-                    title_response = client.models.generate_content(
-                        model="gemini-3.5-flash-lite",
-                        contents=summary_prompt
-                    )
-                    if title_response and title_response.text:
-                        current_chat["title"] = title_response.text.strip()
+                    try:
+                        summary_prompt = f"다음 질문을 바탕으로 대화목록에 표시할 짧은 제목(5단어 이내, 이모지 포함)을 하나만 만들어줘. 부연설명 없이 제목만 출력해.\n질문: {prompt}"
+                        title_response = client.models.generate_content(
+                            model="gemini-3.5-flash-lite",
+                            contents=summary_prompt
+                        )
+                        if title_response and title_response.text:
+                            current_chat["title"] = title_response.text.strip()
+                            st.rerun()
+                    except Exception:
+                        current_chat["title"] = prompt[:12] + "..."
                         st.rerun()
 
             except Exception as e:
