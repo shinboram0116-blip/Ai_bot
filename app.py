@@ -132,7 +132,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             role = "user" if msg["role"] == "user" else "model"
             contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 5. Gemini 3.5 Flash + 실시간 구글 검색 상시 연동
+        # 5. Gemini 3.5 Flash (가장 가성비 뛰어난 유료 모델) + 실시간 구글 검색 상시 연동
         with st.chat_message("assistant"):
             success = False
             last_error = ""
