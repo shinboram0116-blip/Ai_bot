@@ -132,7 +132,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
             role = "user" if msg["role"] == "user" else "model"
             contents.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 5. Gemini 3.5 Flash (가장 가성비 뛰어난 유료 모델) + 실시간 구글 검색 상시 연동
+        # 5. Gemini 3.5 Flash + 실시간 구글 검색 연동
         with st.chat_message("assistant"):
             success = False
             last_error = ""
@@ -160,7 +160,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                     
                 except APIError as e:
                     if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                        last_error = str(e)
+                        last_error = "무료 API 요청 한도(초당/분당 제한)를 초과했습니다. 15초~20초 뒤에 다시 질문해 주세요!"
                         continue
                     else:
                         st.error(f"오류가 발생했습니다: {e}")
@@ -170,7 +170,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                     break
 
             if not success:
-                st.error(f"오류가 발생했습니다: {last_error}")
+                st.warning(last_error)
             else:
                 if is_first_message:
                     try:
