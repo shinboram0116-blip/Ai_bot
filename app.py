@@ -5,9 +5,17 @@ import pypdf
 st.set_page_config(page_title="나만의 Gemini AI 보조", page_icon="🤖", layout="wide")
 st.title("🤖 나만의 Gemini AI 보조")
 
+# Streamlit Secrets 또는 사이드바 입력에서 API 키 가져오기
+api_key = st.secrets.get("GEMINI_API_KEY", "")
+
 with st.sidebar:
     st.header("⚙️ 설정 및 파일")
-    api_key = st.text_input("Google Gemini API Key", type="password")
+    # Secrets에 키가 없는 경우에만 수동 입력창 표시
+    if not api_key:
+        api_key = st.text_input("Google Gemini API Key", type="password")
+    else:
+        st.success("🔒 API 키가 자동으로 연결되었습니다!")
+    
     st.markdown("---")
     uploaded_file = st.file_uploader("PDF 문서를 업로드하세요 (RAG)", type=["pdf"])
 
@@ -20,7 +28,7 @@ for message in st.session_state.messages:
 
 if prompt := st.chat_input("질문을 입력하세요..."):
     if not api_key:
-        st.error("왼쪽 사이드바에 Google Gemini API Key를 입력해 주세요!")
+        st.error("Google Gemini API Key가 설정되지 않았습니다!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -43,7 +51,6 @@ if prompt := st.chat_input("질문을 입력하세요..."):
 
         with st.chat_message("assistant"):
             try:
-                # 최신 genai Client 생성 및 호출
                 client = genai.Client(api_key=api_key)
                 response = client.models.generate_content(
                     model="gemini-3.8-flash",
